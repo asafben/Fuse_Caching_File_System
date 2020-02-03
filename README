@@ -1,0 +1,120 @@
+OS
+A Caching File System
+
+FILES:
+Makefile     --     make.
+README       --     This file.
+CachingFileSystem.cpp -- 
+
+
+
+--------------------------------------------------------------------------------
+Part1: Design Explanations
+======================================
+1) How your library functions are built ?
+We built the caching and all of the functionalities of the fuse, to work
+directly with the OS.
+Later on we combined everything we wrote together, and moved it inside the fuse.
+Many of the fuse functions are similar to the bbfs ones.
+The cache works as follows:
+A mapping between a path and a list of pointers to structs, each struct
+represents a block of information.
+All information blocks are linked with pointers inside three lists of new, mid
+and old blocks, as described in the exercise.
+
+2) Why they are built the way they are ?
+We wanted to avoid basic errors with the fs, which would much harder
+to detect inside the fuse.
+Cache wise, we wanted a simple yet efficient way to handle the blocks.
+
+Part2: Theoretical Questions(10 pts)
+======================================
+
+--------------------------------------------------------------------------------
+1. In this exercise you cached files’ blocks in the heap in order to enable fast
+   access to this data.
+   Does this always provides faster response then accessing the disk?
+   Hint: where is the cache saved?
+
+Answer:
+--------
+The response time when accessing cached file's blocks, will be faster, when all
+of the cached blocks reside in the heap and not on the disk.
+That is, because mechanic access to the HD is much slower.
+But when we reach a point where the memory of our running process is too big for
+the main memory to hold, it'll be paged, and treated as a virtual memory.
+Now, every cache miss, will result in fetching the desired page from the HD -
+meaning it'll be slower than just fetching the block from the HD, because of
+the overhead of searching it and receiving cache miss.
+--------------------------------------------------------------------------------
+
+2. In the class you saw different algorithms for choosing which memory page will
+   be moved to the disk. The most common approach is the clock-algorithm, which
+   is LRU-like. Also our blocks-caching algorithms tries to minimize the
+   accesses to disks by saving data in the memory. However, when we manage the
+   buffer cache, we may actually use more sophisticated algorithms
+   (such as FBR), which will be much harder to manage for swapping pages. Why?
+   Hint – who handles accesses to memory? And who handles accesses to files?
+
+Answer:
+--------
+Memory management is being done by the Memory Management Unit (MMU), which is
+a hardware component.
+On the other hand, accessing files is being done by the operating system.
+It only make sense that sophisticated algorithm can't get all the resources it
+needs from the MMU.
+When working in the OS level, on a given pre-allocated buffer, there is more
+to work with.
+--------------------------------------------------------------------------------
+
+3. Give a simple working pattern with files when LRU is better than LFU and
+   another working pattern when LFU is better. Finally, give a working pattern
+   when both of them don't help at all.
+
+Answer:
+--------
+1) LRU > LFU: Reading the same file, in a short period of time, many times.
+
+2) LFU > LRU: Reading the same file, across the entire running time of the
+              process (long time), many times with gaps between each read, that
+              would have been sufficient to clear the cache pages of the file,
+              if we were to use LRU.
+
+3) LRU == LFU == Not helpful:
+              In both algorithms, say we have cache size of exactly all blocks
+              of a file when reading a file. Then, afterward reading a
+              different file of the same size.
+              All of the cache blocks would be replaced, to the new file.
+              Now, when reading the first file again, NON of it's blocks will
+              be present in the cache memory. 
+--------------------------------------------------------------------------------
+
+4. In FBR, accesses to blocks in the “new section” doesn’t increase the block’s
+   counter. Why? Which possible issues it tries to solve?
+
+Answer:
+--------
+When we read a block and put it in the new section of the cache, we are most
+likely to use it again, and a lot, in that short period of time.
+But in many cases we won't be needing it anymore, yet, it built up a high
+reference count, and would leave the cache after a very long time.
+Thus, resulting newer blocks (with lower reference count) to leave the cache
+before this block, even though they are used more across the running of the
+process.
+
+(As referenced in the article you given link to in the exercise:
+"When a block is first brought into the cache, its reference
+count is intialized to one. Previous algorithms using reference
+counts have incremented the count for a given block
+on every reference to that block. This results in the following
+kind of problem: certain blocks are relatively infrequently
+referenced overall, and yet when they are referenced, due to
+locality there are short intervals of repeated re-references,
+thus building up high reference counts. After such an interval
+is over, the high reference count is misleading: it is due
+to locality, and cannot be used to estimate the probability
+that such a block will be re-referenced following the end of
+this interval (this description is intuitive, since in practice
+such intervals are not as well-defined as the preceding discussion
+may suggest).").
+--------------------------------------------------------------------------------
